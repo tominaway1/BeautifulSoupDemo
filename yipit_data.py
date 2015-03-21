@@ -96,18 +96,21 @@ def get_links(soup):
 				if not str(x).strip():
 					film_list.remove(x)
 			parser1.feed(str(film_list[0]))
+			if parser1.attrs['href'].startswith('#endnote'):
+				continue
 			film_links[parser1.attrs['title']] = ("{0}{1}".format('http://en.wikipedia.org',parser1.attrs['href']),date)
 	return film_links
 
 def get_info(url):
 	# initialize parser objects
 	attr = {}
-	print url
+	# print url
+	targetCategory = ['Release dates','Budget']
 	parser = MyHTMLParser()
 
 	#initiate soup object from url
-	html_doc = get_html_from_link(url).decode("utf8")
-	soup = BeautifulSoup(html_doc)
+	htmlDoc = get_html_from_link(url).decode("utf8")
+	soup = BeautifulSoup(htmlDoc)
 	
 	# print soup.prettify()
 	for item in soup.find_all('table', {'class':'infobox vevent'}):
@@ -124,27 +127,29 @@ def get_info(url):
 				parser.resets()
 				parser.feed(str(row_list[0]))
 				category = parser.data
-				category = re.sub(r"\n", ", ", category)
+				category = re.sub(r"\n", "", category)
 				category = category.strip()
+				if category not in targetCategory:
+					continue
 
 				# get the data and clean it
 				parser.resets()
 				parser.feed(str(row_list[1]))
 				data = parser.data
 				data = data.replace('\xc2\xa0',' ')
-
-				
+				data = data.replace("\xe2\x80\x93",'-')
+				data = ''.join(data.split('\n'))
+				data = ' '.join(data.split())
+				data = re.sub(r'\[[^)]*\]', '', data)
 				attr[category] = data
-				# for element in row_list:
-				# 	parser.feed(str(element))
-				# 	print parser.data
-			# print 
-		print attr
+		if 'Budget' in attr:
+			print attr['Budget']
+		return attr
 
 def main():
 	# initialize variables
 	film_links = {}
-	fild_data = {}
+	film_data = {}
 
 	#parse the link and get the source code
 	html_doc = get_html_from_link('http://en.wikipedia.org/wiki/Academy_Award_for_Best_Picture')
@@ -158,14 +163,18 @@ def main():
 
 	# get relevant information for all films
 	for film in film_links:
-		try:
-			fild_data[film] = get_info(film_links[film][0])
-		except:
-			pass
-		break
-
-
-
+		# try:
+		film_data[film] = get_info(film_links[film][0])
+		# except:
+			# pass
+		# break
+	print
+	for key in film_data:
+		if 'Budget' in film_data[key]:
+			temp = film_data[key]['Budget']
+			# temp = re.findall(r"\$?\\xe2?\d+million?", temp)
+			if '\xc2\xa3' in temp and '$' not in temp:
+				print temp
 
 if __name__ == '__main__':
 	main()
