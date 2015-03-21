@@ -25,14 +25,14 @@ import re, urllib
 
 # Make HTML parsers
 class DateParser(HTMLParser):
-	def __init__(self,start,end):
+	def __init__(self):
 		HTMLParser.__init__(self)
 		self.is_valid = False
-		self.start = int(start)
-		self.end = int(end)
+		self.dates = []
 
 	def resets(self):
 		self.is_valid = False
+		self.dates = []
 
 	def handle_starttag(self, tag, attrs):
 		for a in attrs:
@@ -41,14 +41,8 @@ class DateParser(HTMLParser):
 				for item in s:
 					item.strip()
 					# print item
-					try:
-						if int(item) > self.start and int(item)< self.end:
-							self.is_valid = True
-						else:
-							self.is_valid = False
-							return
-					except:
-						pass
+					if item not in self.dates:
+						self.dates.append(item.strip())
 # make a parser that can get information from one line of html
 class MyHTMLParser(HTMLParser):
 	def __init__(self):
@@ -72,37 +66,37 @@ class MyHTMLParser(HTMLParser):
 
 
 #checks to see if a film is in the right date range
-def validate_date(arr,parser):
+def find_date(arr,parser):
 	parser.resets()
 	for link in arr:
 		parser.feed(str(link))
-	return parser.is_valid
+	return '-'.join(parser.dates)
 
 def get_html_from_link(link):
 	return urllib.urlopen(link).read()
 
-def get_links(soup,begin,end):
+def get_links(soup):
 	# initate variables
 	film_links = {}
 
 	# initialize parser objects
-	parser = DateParser(begin,end)
+	parser = DateParser()
 	parser1 = MyHTMLParser()
 
 	#iterate through tables of movies and get all movies between begin and end
 	for item in soup.find_all('table', {'class':'wikitable'}):
 		if not item:
 			continue
-		#validate that the dates for all films in table are between right dates
-		if validate_date(item.find_all('a'),parser):
-			#Go through all films and parse out the url
-			for film in item.find_all('tr')[1:]:
-				film_list = film.contents
-				for x in film_list:
-					if not str(x).strip():
-						film_list.remove(x)
-				parser1.feed(str(film_list[0]))
-				film_links[parser1.attrs['title']] = "{0}{1}".format('http://en.wikipedia.org',parser1.attrs['href'])
+		#find dates corresponding to links
+		date = find_date(item.find_all('a'),parser)
+		#Go through all films and parse out the url
+		for film in item.find_all('tr')[1:]:
+			film_list = film.contents
+			for x in film_list:
+				if not str(x).strip():
+					film_list.remove(x)
+			parser1.feed(str(film_list[0]))
+			film_links[parser1.attrs['title']] = ("{0}{1}".format('http://en.wikipedia.org',parser1.attrs['href']),date)
 	return film_links
 
 def get_info(url):
@@ -158,15 +152,17 @@ def main():
 	#initiate soup object
 	soup = BeautifulSoup(html_doc)
 	
-	#get all films between 1920-1930
-	begin = 1920
-	end = 1930
-	film_links = get_links(soup,begin,end)
+	#get all films
+	film_links = get_links(soup)
+
 
 	# get relevant information for all films
 	for film in film_links:
-		fild_data[film] = get_info(film_links[film])
-		# break
+		try:
+			fild_data[film] = get_info(film_links[film][0])
+		except:
+			pass
+		break
 
 
 
