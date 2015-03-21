@@ -49,13 +49,13 @@ class DateParser(HTMLParser):
 							return
 					except:
 						pass
-
+# make a parser that can get information from one line of html
 class MyHTMLParser(HTMLParser):
 	def __init__(self):
 		HTMLParser.__init__(self)
 		self.starttag = None
 		self.attrs = {}
-		self.data = None
+		self.data = ''
 
 	def handle_starttag(self, tag, attrs):
 		self.starttag = (tag)
@@ -64,39 +64,37 @@ class MyHTMLParser(HTMLParser):
 				# print attr
 				self.attrs[attr[0]] = attr[1]
 	def handle_data(self, data):
-		self.data = data
+		self.data += data+' '
+	def resets(self):
+		self.starttag = None
+		self.attrs = {}
+		self.data = ''
 
-parser = DateParser(1920,1930)
-parser1 = MyHTMLParser()
 
 #checks to see if a film is in the right date range
-def validate_date(arr):
+def validate_date(arr,parser):
 	parser.resets()
 	for link in arr:
 		parser.feed(str(link))
 	return parser.is_valid
 
+def get_html_from_link(link):
+	return urllib.urlopen(link).read()
 
-def main():
-	# initialize variables
+def get_links(soup,begin,end):
+	# initate variables
 	film_links = {}
-	fild_data = {}
 
-	#parse the link and get the source code
-	link = 'http://en.wikipedia.org/wiki/Academy_Award_for_Best_Picture'
-	f = urllib.urlopen(link)
-	html_doc = f.read()
+	# initialize parser objects
+	parser = DateParser(begin,end)
+	parser1 = MyHTMLParser()
 
-	#initiate soup object
-	soup = BeautifulSoup(html_doc)
-	# print soup.prettify
-	
-	#iterate through tables of movies and get all movies between 1920-1930
+	#iterate through tables of movies and get all movies between begin and end
 	for item in soup.find_all('table', {'class':'wikitable'}):
 		if not item:
 			continue
 		#validate that the dates for all films in table are between right dates
-		if validate_date(item.find_all('a')):
+		if validate_date(item.find_all('a'),parser):
 			#Go through all films and parse out the url
 			for film in item.find_all('tr')[1:]:
 				film_list = film.contents
@@ -105,9 +103,76 @@ def main():
 						film_list.remove(x)
 				parser1.feed(str(film_list[0]))
 				film_links[parser1.attrs['title']] = "{0}{1}".format('http://en.wikipedia.org',parser1.attrs['href'])
-	print film_links
-	print len(film_links)
+	return film_links
+
+def get_info(url):
+	# initialize parser objects
+	attr = {}
+	print url
+	parser = MyHTMLParser()
+
+	#initiate soup object from url
+	html_doc = get_html_from_link(url)
+	soup = BeautifulSoup(html_doc)
 	
+	# print soup.prettify()
+	for item in soup.find_all('table', {'class':'infobox vevent'}):
+		for row in item.find_all('tr'):
+			row_list = row.contents
+			for x in row_list:
+				try:
+					if not str(x).strip():
+						row_list.remove(x)
+				except:
+					pass
+			if len(row_list) == 2:
+				# get information 
+				parser.resets()
+				parser.feed(str(row_list[0]))
+				category = parser.data
+				category = re.sub(r"\n", ", ", category)
+				category.strip()
+
+				# get the data and clean it
+				parser.resets()
+				parser.feed(str(row_list[1]))
+				data = parser.data
+				data = data.decode("utf_8")
+				data = data.encode("ascii",'replace')
+				data.replace('?',' ')
+				data = data.split()
+				data = ''.join(data)
+				
+				attr[category] = data
+				# for element in row_list:
+				# 	parser.feed(str(element))
+				# 	print parser.data
+			# print 
+		print attr
+
+def main():
+	# initialize variables
+	film_links = {}
+	fild_data = {}
+
+	#parse the link and get the source code
+	html_doc = get_html_from_link('http://en.wikipedia.org/wiki/Academy_Award_for_Best_Picture')
+
+	#initiate soup object
+	soup = BeautifulSoup(html_doc)
+	
+	#get all films between 1920-1930
+	begin = 1920
+	end = 1930
+	film_links = get_links(soup,begin,end)
+
+	# get relevant information for all films
+	for film in film_links:
+		fild_data[film] = get_info(film_links[film])
+		# break
+
+
+
 
 if __name__ == '__main__':
 	main()
