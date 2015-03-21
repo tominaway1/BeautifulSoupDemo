@@ -112,7 +112,7 @@ def get_info(url):
 	parser = MyHTMLParser()
 
 	#initiate soup object from url
-	html_doc = get_html_from_link(url)
+	html_doc = get_html_from_link(url).decode("utf8")
 	soup = BeautifulSoup(html_doc)
 	
 	# print soup.prettify()
@@ -131,17 +131,14 @@ def get_info(url):
 				parser.feed(str(row_list[0]))
 				category = parser.data
 				category = re.sub(r"\n", ", ", category)
-				category.strip()
+				category = category.strip()
 
 				# get the data and clean it
 				parser.resets()
 				parser.feed(str(row_list[1]))
 				data = parser.data
-				data = data.decode("utf_8")
-				data = data.encode("ascii",'replace')
-				data.replace('?',' ')
-				data = data.split()
-				data = ''.join(data)
+				data = data.replace('\xc2\xa0',' ')
+
 				
 				attr[category] = data
 				# for element in row_list:
