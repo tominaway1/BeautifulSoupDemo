@@ -14,7 +14,7 @@ def parse_to_float(X,is_euro):
 	X = X.replace('$','')
 	X = X.replace('\xc2\xa3','')
 	X = X.split()
-	# print X
+	print X
 	if len(X) == 1:
 		if is_euro:
 			return convert_to_euros(float(X[0]))
@@ -26,6 +26,11 @@ def parse_to_float(X,is_euro):
 				return convert_to_euros(1000000 * float(X[0]))
 			else:
 				return 1000000 * float(X[0])
+		else:
+			if is_euro:
+				return convert_to_euros(float(X[0]))
+			else:
+				return float(X[0])
 	else:
 		if X[1] == "-":
 			avg = (float(X[0])+float(X[2]))/2
@@ -46,6 +51,7 @@ def parse_string(X):
 	if not X:
 		return None,False
 	X = ''.join(X.split())
+	print X
 
 	# check for all cases
 	if len(re.findall(r'(\$[0-9,.-]*million)',X)) > 0:
@@ -63,19 +69,19 @@ def parse_string(X):
 
 
 def main():
-	#make array
-	f = open('output','r')
-	arr = f.read().split('\n')
-	# print len(arr)
-	arr1 = []
-	arr2 =[]
-	i = 0
-	for item in arr:
-		# print item
-		val, is_euro = parse_string(item)
-		if not val:
-			continue
-		print parse_to_float(val,is_euro)
+	# #make array
+	# f = open('output','r')
+	# arr = f.read().split('\n')
+	# # print len(arr)
+	# arr1 = []
+	# arr2 =[]
+	# i = 0
+	# for item in arr:
+	# 	# print item
+	# 	val, is_euro = parse_string(item)
+	# 	if not val:
+	# 		continue
+	# 	print parse_to_float(val,is_euro)
 		# if '$' in item:
 		# 	arr1.append(item)
 		# elif '\xc2\xa3' in item:
@@ -86,7 +92,7 @@ def main():
 	# print arr2
 	# print ((len(arr1)+len(arr2)+i)==len(arr)) 
 
-	# print parse_to_float(parse_string('$32 million'),False)
+	print parse_to_float('$1,200,000-',False)
 	# print parse_to_float(parse_string('$58.8 million'),False)
 	# print parse_to_float(parse_string('$8-8.5 million '),False)
 	# print parse_to_float(parse_string('$800,000-850,000  '),False)
@@ -96,7 +102,7 @@ def main():
 	# print parse_string('$839,727')
 	# print parse_string('$32 million')
 	# print parse_string('$8-8.5 million')
-	# print parse_string('\xc2\xa332 million')
+	print parse_string('$1,200,000-$2,275,000')
 
 
 

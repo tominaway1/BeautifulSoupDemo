@@ -22,6 +22,7 @@
 from bs4 import BeautifulSoup
 from HTMLParser import HTMLParser
 import re, urllib
+from eval_cost import convert_to_euros, parse_to_float, parse_string
 
 # Make HTML parsers
 class DateParser(HTMLParser):
@@ -65,6 +66,17 @@ class MyHTMLParser(HTMLParser):
 		self.data = ''
 
 
+def remove_subs(x):
+	#remove superscript tag
+	temp = re.findall(r'(<sup(.*?)</sup>)',x)
+	if not temp:
+		return x
+	if len(temp) > 0:
+		if len(temp[0])>0:
+			x = x.replace(str(temp[0][0]),'')
+	return x
+
+
 #checks to see if a film is in the right date range
 def find_date(arr,parser):
 	parser.resets()
@@ -104,7 +116,6 @@ def get_links(soup):
 def get_info(url):
 	# initialize parser objects
 	attr = {}
-	# print url
 	targetCategory = ['Release dates','Budget']
 	parser = MyHTMLParser()
 
@@ -115,6 +126,7 @@ def get_info(url):
 	# print soup.prettify()
 	for item in soup.find_all('table', {'class':'infobox vevent'}):
 		for row in item.find_all('tr'):
+
 			row_list = row.contents
 			for x in row_list:
 				try:
@@ -134,7 +146,7 @@ def get_info(url):
 
 				# get the data and clean it
 				parser.resets()
-				parser.feed(str(row_list[1]))
+				parser.feed(remove_subs(str(row_list[1])))
 				data = parser.data
 				data = data.replace('\xc2\xa0',' ')
 				data = data.replace("\xe2\x80\x93",'-')
@@ -142,8 +154,8 @@ def get_info(url):
 				data = ' '.join(data.split())
 				data = re.sub(r'\[[^)]*\]', '', data)
 				attr[category] = data
-		if 'Budget' in attr:
-			print attr['Budget']
+		# if 'Budget' in attr:
+		# 	print attr['Budget'] + url
 		return attr
 
 def main():
@@ -163,19 +175,22 @@ def main():
 
 	# get relevant information for all films
 	for film in film_links:
-		# try:
-		film_data[film] = get_info(film_links[film][0])
-		# except:
-			# pass
+		try:
+			film_data[film] = get_info(film_links[film][0])
+		except:
+			pass
 		# break
-	print
 	for key in film_data:
 		if 'Budget' in film_data[key]:
 			temp = film_data[key]['Budget']
-			# temp = re.findall(r"\$?\\xe2?\d+million?", temp)
-			if '\xc2\xa3' in temp and '$' not in temp:
-				print temp
+			val, is_euro = parse_string(temp)
+			if not val:
+				continue
+			# print film_data[key]['Budget']
+			film_data[key]['Budget'] = parse_to_float(val,is_euro)
 
+	make_csv(film_data,film_links)
+	
 if __name__ == '__main__':
 	main()
 
