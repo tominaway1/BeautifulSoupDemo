@@ -9,9 +9,9 @@
 
 import re
 
-#according to google, conversion from euros to dollar is 1.8
+#according to google, conversion from euros to dollar is 1.09
 def convert_to_euros(x):
-	return 1.8 * x
+	return 1.09 * x
 
 #from a given string, return estimated cost
 def parse_to_float(X,is_euro):
