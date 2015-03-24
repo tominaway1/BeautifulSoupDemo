@@ -1,30 +1,20 @@
-# Data System Engineers at YipitData need to be able to extract messy data
-# from external websites in a clean and robust manner.
-
-# The assignment is to write a script to scrape the budgets of the Academy
-# Award Best Picture winners from Wikipedia. Your script should go the
-# the Wikipedia
-# page for the award
-# http://en.wikipedia.org/wiki/Academy_Award_for_Best_Picture#1920s, follow
-# the link for each years winner, grab the budget from the box on the right
-# of the page, and print out each Year-Title-Budget combination. After
-# printing each combination, it should print the average budget at the end.
-
-# If you encounter any edge cases, feel free to use your best judgement and
-# add a comment with your conclusion. This code should be written to
-# production standards.
-
-# You can use any language you want, but there is a strong preference for a
-# language where we will be able to reproduce your results (any modern,
-# semi-popular language will be fine). Please add instructions about any
-# additional libraries that may be necessary along with versions.
+####################################
+# File name: wiki_parser.py        #
+# Author: Tommy Inouye             #
+# Date: 03/24/12                   #
+# Description:  write a script to  #
+# scrape the budgets of the Academy#
+# Award Best Picture winners from  #
+# Wikipedia.                       #
+####################################
 
 from bs4 import BeautifulSoup
 from HTMLParser import HTMLParser
-import re, urllib
 from eval_cost import convert_to_euros, parse_to_float, parse_string
+import re, urllib, csv
 
-# Make HTML parsers
+
+# Parser that looks for the date using regular expressions
 class DateParser(HTMLParser):
 	def __init__(self):
 		HTMLParser.__init__(self)
@@ -44,6 +34,7 @@ class DateParser(HTMLParser):
 					# print item
 					if item not in self.dates:
 						self.dates.append(item.strip())
+
 # make a parser that can get information from one line of html
 class MyHTMLParser(HTMLParser):
 	def __init__(self):
@@ -51,7 +42,6 @@ class MyHTMLParser(HTMLParser):
 		self.starttag = None
 		self.attrs = {}
 		self.data = ''
-
 	def handle_starttag(self, tag, attrs):
 		self.starttag = (tag)
 		for attr in attrs:
@@ -65,7 +55,7 @@ class MyHTMLParser(HTMLParser):
 		self.attrs = {}
 		self.data = ''
 
-
+#This function will strip the first subscript from html string
 def remove_subs(x):
 	#remove superscript tag
 	temp = re.findall(r'(<sup(.*?)</sup>)',x)
@@ -84,12 +74,15 @@ def find_date(arr,parser):
 		parser.feed(str(link))
 	return '-'.join(parser.dates)
 
+# gets the html from a url
 def get_html_from_link(link):
 	return urllib.urlopen(link).read()
 
+#will get url and date associated to a film 
 def get_links(soup):
 	# initate variables
-	film_links = {}
+	filmLinks = {}
+	dateLinks = {}
 
 	# initialize parser objects
 	parser = DateParser()
@@ -103,30 +96,35 @@ def get_links(soup):
 		date = find_date(item.find_all('a'),parser)
 		#Go through all films and parse out the url
 		for film in item.find_all('tr')[1:]:
-			film_list = film.contents
-			for x in film_list:
+			filmList = film.contents
+			for x in filmList:
 				if not str(x).strip():
-					film_list.remove(x)
-			parser1.feed(str(film_list[0]))
+					filmList.remove(x)
+			parser1.feed(str(filmList[0]))
 			if parser1.attrs['href'].startswith('#endnote'):
 				continue
-			film_links[parser1.attrs['title']] = ("{0}{1}".format('http://en.wikipedia.org',parser1.attrs['href']),date)
-	return film_links
+			#update all relevant dictionaries
+			filmLinks[parser1.attrs['title']] = "{0}{1}".format('http://en.wikipedia.org',parser1.attrs['href'])
+			dateLinks.setdefault(date,[])
+			dateLinks[date].append(parser1.attrs['title'])
+	return filmLinks, dateLinks
 
+#given a url, will go to that page and parse the infobox for the budget and release date
 def get_info(url):
-	# initialize parser objects
+	# initialize variables
 	attr = {}
 	targetCategory = ['Release dates','Budget']
+
+	# initialize parser objects
 	parser = MyHTMLParser()
 
 	#initiate soup object from url
 	htmlDoc = get_html_from_link(url).decode("utf8")
 	soup = BeautifulSoup(htmlDoc)
 	
-	# print soup.prettify()
+	#parse through every element in infobox
 	for item in soup.find_all('table', {'class':'infobox vevent'}):
 		for row in item.find_all('tr'):
-
 			row_list = row.contents
 			for x in row_list:
 				try:
@@ -135,12 +133,14 @@ def get_info(url):
 				except:
 					pass
 			if len(row_list) == 2:
-				# get information 
+				# get information and put through html parser
 				parser.resets()
+				#get the category and clean it
 				parser.feed(str(row_list[0]))
 				category = parser.data
 				category = re.sub(r"\n", "", category)
 				category = category.strip()
+				#check to see if in target category (aka release date or budget)
 				if category not in targetCategory:
 					continue
 
@@ -154,14 +154,60 @@ def get_info(url):
 				data = ' '.join(data.split())
 				data = re.sub(r'\[[^)]*\]', '', data)
 				attr[category] = data
-		# if 'Budget' in attr:
-		# 	print attr['Budget'] + url
 		return attr
 
-def main():
+#given all dictionaries, create the output csv file
+def make_csv(links,data,dates):
 	# initialize variables
-	film_links = {}
-	film_data = {}
+	csv_name = 'output.csv'
+	total = 0
+	number = 0
+
+	#make general output file
+	with open(csv_name,'wb') as fp:
+		a = csv.writer(fp,delimiter=',')
+		a.writerow(['Name','Release-date','Budget','Estimated budget (in Dollars)','link'])
+		#sort films by date
+		for date in sorted(dates):
+			a.writerow([date])
+			#initialize average variables
+			avg = 0
+			num = 0
+			#output all relevant information about film
+			for key in dates[date]:
+				arr = []
+				arr.append(key)
+				d = data[key]
+				if 'Release dates' in d:
+					arr.append(d['Release dates'])
+				else:
+					arr.append('N/A')
+				if 'Budget' in d:
+					arr.append(d['Budget'])
+					arr.append(d['Cost'])
+					avg += d['Cost']
+					num += 1
+					total += d['Cost']
+					number += 1
+				else:
+					arr.append('N/A')
+					arr.append('N/A')
+				arr.append(links[key])
+				a.writerow(arr)
+			# write out the average if it exists
+			if num == 0:
+				a.writerow(['None of the budgets were available for this period'])
+			else:
+				a.writerow(['The average for this period was ${0:.2f}'.format(avg/num)])
+			a.writerow([])
+		#write total average over all years
+		a.writerow(['The total average for all films was ${0:.2f}'.format(total/number)])
+
+def main():
+	print "Stage 1: Parsing through wikipedia page and getting the date and url of every film"
+	# initialize variables
+	filmLinks = {}
+	filmData = {}
 
 	#parse the link and get the source code
 	html_doc = get_html_from_link('http://en.wikipedia.org/wiki/Academy_Award_for_Best_Picture')
@@ -169,27 +215,29 @@ def main():
 	#initiate soup object
 	soup = BeautifulSoup(html_doc)
 	
-	#get all films
-	film_links = get_links(soup)
+	#get all dictionary of urls and dates
+	filmLinks,dateLinks = get_links(soup)
 
-
+	print "Stage 2: Retrieving the budget and release date of every film from their respective urls"
 	# get relevant information for all films
-	for film in film_links:
+	for film in filmLinks:
 		try:
-			film_data[film] = get_info(film_links[film][0])
+			filmData[film] = get_info(filmLinks[film])
 		except:
 			pass
-		# break
-	for key in film_data:
-		if 'Budget' in film_data[key]:
-			temp = film_data[key]['Budget']
+	#estimate the cost from budget information
+	for key in filmData:
+		if 'Budget' in filmData[key]:
+			temp = filmData[key]['Budget']
 			val, is_euro = parse_string(temp)
 			if not val:
 				continue
-			# print film_data[key]['Budget']
-			film_data[key]['Budget'] = parse_to_float(val,is_euro)
-
-	make_csv(film_data,film_links)
+			filmData[key]['Cost'] = parse_to_float(val,is_euro)
+	
+	#make the csv file with all relevant information
+	print "Stage 3: Creating Output.csv which is a csv file with all relevant information"
+	make_csv(filmLinks,filmData,dateLinks)
+	print "Done."
 	
 if __name__ == '__main__':
 	main()
