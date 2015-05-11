@@ -1,6 +1,6 @@
 README.txt
 
-The assignment: The assignment is to write a script to scrape the budgets of the Academy
+The goal is to write a script to scrape the budgets of the Academy
 Award Best Picture winners from Wikipedia. It must use the page 
 http://en.wikipedia.org/wiki/Academy_Award_for_Best_Picture#1920s, follow the link for each year’s winner,
 and grab the budget from the box on the right of the page, and print out each 
@@ -23,7 +23,7 @@ an output csv file called "output.csv" which can be opened in excel. Every film 
 the year[s] it came out and prints out the average budget for all the films that year. 
 
 Approach: 
-When I first received this assignment, my initial thought was to use the Wikipedia API. This wound
+My initial thought was to use the Wikipedia API. This wound
 up being a horrible idea. The API was not able to give back nearly enough information and was not 
 useful for this assignment. So instead, I decided to work with the source code of the page. Looking 
 at the HTML code of the page, I realized that it was really easy to parse through the HTML and 
